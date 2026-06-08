@@ -49,7 +49,7 @@ with st.sidebar.expander("Fricción y Guiado (Tribología)", expanded=True):
     tipo_tether = st.selectbox("Material Arandela (contra Nylon)", 
         ("PTFE/Teflón (μ=0.04)", "PEEK (μ=0.15)", "Acetal/POM (μ=0.20)", "Impresión 3D PLA (μ=0.35)"))
     
-    dict_tether = {"PTFE/Teflón (μ=0.04)": 0.04, "Iglidur J (μ=0.10)": 0.10 "PEEK (μ=0.15)": 0.15, "Acetal/POM (μ=0.20)": 0.20, "Impresión 3D PLA (μ=0.35)": 0.35}
+    dict_tether = {"PTFE/Teflón (μ=0.04)": 0.04, "Iglidur J (μ=0.10)": 0.10, "PEEK (μ=0.15)": 0.15, "Acetal/POM (μ=0.20)": 0.20, "Impresión 3D PLA (μ=0.35)": 0.35}
     mu_tether = dict_tether[tipo_tether]
     
     # La pista genera una tensión y vibración constante sobre el cable que aprieta la arandela
