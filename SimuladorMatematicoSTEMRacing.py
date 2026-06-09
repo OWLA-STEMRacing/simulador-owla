@@ -180,71 +180,75 @@ if sol.status == 1:
 
 
     st.divider()
-st.header("🏆 Tabla de Clasificación Oficial")
-
-# Inicializar la base de datos interna en la memoria global si no existe
-if "leaderboard_data" not in st.session_state:
-    st.session_state.leaderboard_data = pd.DataFrame(columns=["Equipo", "Tiempo", "Velocidad"])
-
-df_leaderboard = st.session_state.leaderboard_data
-
-# Zona para registrar el tiempo actual
-st.subheader("📝 Registrar tu Simulación")
-col_reg1, col_reg2 = st.columns([2, 1])
-
-with col_reg1:
-    nombre_equipo = st.text_input("Nombre del Equipo / Escudería:", placeholder="Ej. OWLA Racing Team").strip()
-
-with col_reg2:
-    st.write("") # Espaciadores estéticos
-    st.write("") 
-    if st.button("🚀 Subir Tiempo Oficial"):
-        if nombre_equipo:
-            nuevo_registro = pd.DataFrame([{
-                "Equipo": nombre_equipo,
-                "Tiempo": round(float(tiempo_pista), 3),
-                "Velocidad": round(float(vel_maxima * 3.6), 2)
-            }])
-            
-            # Comprobar si el equipo ya existe para actualizar su mejor marca
-            if nombre_equipo in df_leaderboard["Equipo"].values:
-                tiempo_anterior = df_leaderboard.loc[df_leaderboard["Equipo"] == nombre_equipo, "Tiempo"].values[0]
-                if tiempo_pista < tiempo_anterior:
-                    df_leaderboard = df_leaderboard[df_leaderboard["Equipo"] != nombre_equipo]
-                    df_leaderboard = pd.concat([df_leaderboard, nuevo_registro], ignore_index=True)
-                    st.success(f"¡Has mejorado tu récord, {nombre_equipo}!")
+    st.header("🏆 Tabla de Clasificación Oficial")
+    
+    # Función con caché global para mantener los datos vivos entre diferentes dispositivos
+    @st.cache_resource
+    def obtener_base_datos_global():
+        # Creamos un diccionario persistente en el servidor de Streamlit
+        return {"lista": pd.DataFrame(columns=["Equipo", "Tiempo", "Velocidad"])}
+    
+    # Recuperamos el contenedor global
+    contenedor_global = obtener_base_datos_global()
+    df_leaderboard = contenedor_global["lista"]
+    
+    # Zona para registrar el tiempo actual
+    st.subheader("📝 Registrar tu Simulación")
+    col_reg1, col_reg2 = st.columns([2, 1])
+    
+    with col_reg1:
+        nombre_equipo = st.text_input("Nombre del Equipo / Escudería:", placeholder="Ej. OWLA Racing Team").strip()
+    
+    with col_reg2:
+        st.write("") # Espaciadores estéticos
+        st.write("") 
+        if st.button("🚀 Subir Tiempo Oficial"):
+            if nombre_equipo:
+                nuevo_registro = pd.DataFrame([{
+                    "Equipo": nombre_equipo,
+                    "Tiempo": round(float(tiempo_pista), 3),
+                    "Velocidad": round(float(vel_maxima * 3.6), 2)
+                }])
+                
+                # Comprobar si el equipo ya existe para actualizar su mejor marca
+                if nombre_equipo in df_leaderboard["Equipo"].values:
+                    tiempo_anterior = df_leaderboard.loc[df_leaderboard["Equipo"] == nombre_equipo, "Tiempo"].values[0]
+                    if tiempo_pista < tiempo_anterior:
+                        df_leaderboard = df_leaderboard[df_leaderboard["Equipo"] != nombre_equipo]
+                        df_leaderboard = pd.concat([df_leaderboard, nuevo_registro], ignore_index=True)
+                        st.success(f"¡Has mejorado tu récord, {nombre_equipo}!")
+                    else:
+                        st.warning(f"{nombre_equipo} ya tiene un mejor tiempo registrado ({tiempo_anterior} s).")
                 else:
-                    st.warning(f"{nombre_equipo} ya tiene un mejor tiempo registrado ({tiempo_anterior} s).")
+                    df_leaderboard = pd.concat([df_leaderboard, nuevo_registro], ignore_index=True)
+                    st.success(f"¡Datos guardados con éxito para {nombre_equipo}!")
+                
+                # Guardamos los datos de vuelta en el recurso global del servidor
+                contenedor_global["lista"] = df_leaderboard
+                st.rerun()
             else:
-                df_leaderboard = pd.concat([df_leaderboard, nuevo_registro], ignore_index=True)
-                st.success(f"¡Datos guardados con éxito para {nombre_equipo}!")
-            
-            # Guardamos la actualización en la memoria compartida de la app
-            st.session_state.leaderboard_data = df_leaderboard
+                st.error("Por favor, introduce un nombre de equipo válido.")
+    
+    # Mostrar la Tabla de Posiciones ordenada por tiempo (Ascendente)
+    if not df_leaderboard.empty:
+        df_sorted = df_leaderboard.sort_values(by="Tiempo", ascending=True).reset_index(drop=True)
+        df_sorted.index = df_sorted.index + 1
+        df_sorted.index.name = "Puesto"
+        
+        st.dataframe(
+            df_sorted, 
+            use_container_width=True,
+            column_config={
+                "Tiempo": st.column_config.NumberColumn("Tiempo Estimado (s)", format="%.3f s"),
+                "Velocidad": st.column_config.NumberColumn("V. Punta (km/h)", format="%.1f km/h")
+            }
+        )
+        
+        # Botón de reset directo para tus pruebas
+        st.write("")
+        if st.button("🗑️ Resetear Tabla de Pruebas"):
+            contenedor_global["lista"] = pd.DataFrame(columns=["Equipo", "Tiempo", "Velocidad"])
+            st.success("Tabla reseteada a cero.")
             st.rerun()
-        else:
-            st.error("Por favor, introduce un nombre de equipo válido.")
-
-# Mostrar la Tabla de Posiciones ordenada por tiempo (Ascendente)
-if not df_leaderboard.empty:
-    df_sorted = df_leaderboard.sort_values(by="Tiempo", ascending=True).reset_index(drop=True)
-    df_sorted.index = df_sorted.index + 1
-    df_sorted.index.name = "Puesto"
-    
-    st.dataframe(
-        df_sorted, 
-        use_container_width=True,
-        column_config={
-            "Tiempo": st.column_config.NumberColumn("Tiempo Estimado (s)", format="%.3f s"),
-            "Velocidad": st.column_config.NumberColumn("V. Punta (km/h)", format="%.1f km/h")
-        }
-    )
-    
-    # Botón de reset directo para tus pruebas (sin contraseñas ni rodeos)
-    st.write("")
-    if st.button("🗑️ Resetear Tabla de Pruebas"):
-        st.session_state.leaderboard_data = pd.DataFrame(columns=["Equipo", "Tiempo", "Velocidad"])
-        st.success("Tabla reseteada a cero.")
-        st.rerun()
-else:
-    st.info("La tabla de clasificación está vacía. ¡Sé el primero en registrarte!")
+    else:
+        st.info("La tabla de clasificación está vacía. ¡Sé el primero en registrarte!")
